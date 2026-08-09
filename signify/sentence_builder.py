@@ -1,37 +1,80 @@
 """
-Sentence-building logic with temporal debouncing.
+Sentence-building logic with temporal debouncing + smart letter/word handling.
 
-A raw per-frame prediction stream is noisy. This class waits until one label
-has been the top prediction for a run of consecutive frames (and clears the
-"cooldown" only after the hand leaves / the sign changes) before committing it
-as a word. That turns flickery detections into a clean, editable sentence.
+The model emits two kinds of labels:
+  * single LETTERS (A–Z)  -> should be spelled INTO one word, e.g. W,A,N,T -> "WANT"
+  * whole WORDS (Hello, ILoveYou, ...) -> stand-alone tokens, spaced apart
+
+So we keep a `_buffer` of the letters currently being spelled and a list of
+finalized `_words`. A letter appends to the buffer; a whole word flushes the
+buffer and adds itself as its own token; Space flushes the current buffer.
+
+Raw per-frame predictions are noisy, so a label must be the top prediction for
+a run of consecutive frames before it's committed (temporal debouncing).
 """
 
 from collections import deque, Counter
 
+# Labels that need a nicer on-screen / spoken form than the raw model label.
+DISPLAY_NAMES = {
+    "ILoveYou": "I Love You",
+    "NotOk": "Not Ok",
+    "Thankyou": "Thank You",
+    "MyNameIs": "My Name Is",
+    "GoodMorning": "Good Morning",
+    "none": "",
+}
+
+
+def display_name(label: str) -> str:
+    """Human-friendly form of a raw model label."""
+    if label is None:
+        return ""
+    return DISPLAY_NAMES.get(label, label)
+
+
+def is_letter(label: str) -> bool:
+    """True for single A–Z fingerspelling letters."""
+    return isinstance(label, str) and len(label) == 1 and label.isalpha()
+
 
 class SentenceBuilder:
-    def __init__(self, stability=10, min_confidence=0.5, cooldown_frames=8):
+    def __init__(self, stability=10, min_confidence=0.5, cooldown_frames=8,
+                 autobreak_frames=25):
         # stability: frames a label must dominate before it's committed
-        # cooldown_frames: empty/other frames needed before the SAME word can repeat
+        # cooldown_frames: empty/other frames before the SAME label can repeat
+        # autobreak_frames: empty frames after which spelled letters auto-finish
+        #                   into a word (so pausing the hand = a word break)
         self.stability = stability
         self.min_confidence = min_confidence
         self.cooldown_frames = cooldown_frames
+        self.autobreak_frames = autobreak_frames
 
         self._recent = deque(maxlen=stability)
-        self._words = []
+        self._words = []       # finalized tokens (already display-formatted)
+        self._buffer = ""      # letters currently being spelled
         self._last_committed = None
         self._empty_streak = 0
 
     # ---- live feed -------------------------------------------------------
     def update(self, label, score):
-        """Feed one frame's top prediction (label may be None). Returns the
-        newly committed word this frame, or None."""
+        """Feed one frame's top prediction (label may be None).
+
+        Returns the newly committed item this frame (a letter or a word), or
+        None if nothing was committed.
+        """
+        # 'none' is the model's no-gesture class — treat as empty.
+        if label == "none":
+            label = None
+
         if label is None or score < self.min_confidence:
             self._recent.append(None)
             self._empty_streak += 1
             if self._empty_streak >= self.cooldown_frames:
-                self._last_committed = None  # allow same word again after a pause
+                self._last_committed = None  # allow same label again after a pause
+            # a longer pause while spelling auto-finishes the current word
+            if self._empty_streak == self.autobreak_frames and self._buffer:
+                self._flush_buffer()
             return None
 
         self._empty_streak = 0
@@ -40,50 +83,62 @@ class SentenceBuilder:
             return None
 
         winner, count = Counter(self._recent).most_common(1)[0]
-        if winner is not None and count >= int(0.8 * self.stability):
-            if winner != self._last_committed:
-                self._words.append(winner)
-                self._last_committed = winner
-                return winner
-        return None
+        if winner is None or count < int(0.8 * self.stability):
+            return None
+        if winner == self._last_committed:
+            return None
+
+        self._last_committed = winner
+        if is_letter(winner):
+            # spell into the current word
+            self._buffer += winner
+            return winner
+        else:
+            # a whole word: finalize any spelled letters, then add the word
+            self._flush_buffer()
+            self._words.append(display_name(winner))
+            return display_name(winner)
 
     # ---- editing ---------------------------------------------------------
+    def _flush_buffer(self):
+        if self._buffer:
+            self._words.append(self._buffer)
+            self._buffer = ""
+
     def add_space(self):
-        # spaces are represented by an explicit marker word
-        if self._words and self._words[-1] != " ":
-            self._words.append(" ")
+        """Finish the word currently being spelled (start a new one)."""
+        self._flush_buffer()
+        self._last_committed = None
 
     def backspace(self):
-        if self._words:
+        """Delete the last character being spelled, or the last whole token."""
+        if self._buffer:
+            self._buffer = self._buffer[:-1]
+        elif self._words:
             self._words.pop()
         self._last_committed = None
 
     def clear(self):
         self._words.clear()
+        self._buffer = ""
         self._recent.clear()
         self._last_committed = None
         self._empty_streak = 0
 
     def add_word(self, word):
-        """Manually append a word (e.g. from a quick-add button)."""
-        self._words.append(word)
-        self._last_committed = word
+        """Manually append a finalized word (e.g. from a quick-add button)."""
+        self._flush_buffer()
+        self._words.append(display_name(word))
+        self._last_committed = None
 
     # ---- output ----------------------------------------------------------
     @property
     def words(self):
-        return list(self._words)
+        out = list(self._words)
+        if self._buffer:
+            out.append(self._buffer)
+        return out
 
     def text(self):
-        """Render the words into a readable sentence."""
-        out = []
-        for w in self._words:
-            out.append(" " if w == " " else w)
-        # join words with single spaces, but respect explicit space markers
-        s = ""
-        for i, w in enumerate(self._words):
-            if w == " ":
-                s = s.rstrip() + " "
-            else:
-                s += (w + " ")
-        return s.strip()
+        """Render finalized words + the word currently being spelled."""
+        return " ".join(self.words)

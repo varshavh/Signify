@@ -20,7 +20,7 @@ from PIL import Image
 from .config import (APP_NAME, APP_TAGLINE, COLORS, NUM_HANDS,
                      STABILITY_FRAMES, MIN_CONFIDENCE, check_credentials)
 from .recognizer import SignRecognizer
-from .sentence_builder import SentenceBuilder
+from .sentence_builder import SentenceBuilder, display_name, is_letter
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -135,11 +135,16 @@ class DetectScreen(ctk.CTkFrame):
         self.sentence_box.insert("1.0", "")
         self.sentence_box.configure(state="disabled")
 
+        ctk.CTkLabel(right, text="Letters spell into a word; pause or press "
+                     "“End word” to finish it. Whole-word signs stand alone.",
+                     font=("Arial", 11), text_color=COLORS["muted"],
+                     wraplength=340, justify="left").pack(anchor="w", padx=18, pady=(6, 0))
+
         # Editing controls
         btns = ctk.CTkFrame(right, fg_color="transparent")
         btns.pack(fill="x", padx=18, pady=14)
         grid = [
-            ("␣ Space", self._space, COLORS["surface_2"]),
+            ("✓ End word", self._space, COLORS["surface_2"]),
             ("⌫ Backspace", self._backspace, COLORS["surface_2"]),
             ("🗑 Clear", self._clear, COLORS["surface_2"]),
             ("🔊 Speak", self._speak, COLORS["primary"]),
@@ -198,9 +203,12 @@ class DetectScreen(ctk.CTkFrame):
             annotated, preds = self.recognizer.process(frame)
 
             label, score = (preds[0] if preds else (None, 0.0))
-            if label:
+            if label and label != "none":
                 self.current_pred = (label, score)
-                self.pred_label.configure(text=f"{label}   {score:.0%}")
+                shown = display_name(label)
+                # hint that a letter is being spelled vs a whole word
+                kind = "letter" if is_letter(label) else "word"
+                self.pred_label.configure(text=f"{shown}   {score:.0%}   ·  {kind}")
             else:
                 self.pred_label.configure(text="Detecting…")
 
