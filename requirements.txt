@@ -1,0 +1,6 @@
+# Signify — desktop app requirements. Use Python 3.10–3.12 (mediapipe has no 3.13/3.14 wheels).
+mediapipe==0.10.21
+opencv-python>=4.8
+customtkinter>=5.2
+pillow>=10.0
+pyttsx3>=2.90
