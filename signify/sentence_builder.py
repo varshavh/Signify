@@ -40,15 +40,18 @@ def is_letter(label: str) -> bool:
 
 class SentenceBuilder:
     def __init__(self, stability=10, min_confidence=0.5, cooldown_frames=8,
-                 autobreak_frames=25):
+                 autobreak_frames=25, corrector=None):
         # stability: frames a label must dominate before it's committed
         # cooldown_frames: empty/other frames before the SAME label can repeat
         # autobreak_frames: empty frames after which spelled letters auto-finish
         #                   into a word (so pausing the hand = a word break)
+        # corrector: optional AutoCorrector applied to spelled words on flush
         self.stability = stability
         self.min_confidence = min_confidence
         self.cooldown_frames = cooldown_frames
         self.autobreak_frames = autobreak_frames
+        self.corrector = corrector
+        self.autocorrect_enabled = corrector is not None
 
         self._recent = deque(maxlen=stability)
         self._words = []       # finalized tokens (already display-formatted)
@@ -102,13 +105,27 @@ class SentenceBuilder:
     # ---- editing ---------------------------------------------------------
     def _flush_buffer(self):
         if self._buffer:
-            self._words.append(self._buffer)
+            word = self._buffer
+            # spelled words get autocorrected (whole-word signs never enter here)
+            if self.autocorrect_enabled and self.corrector is not None:
+                word = self.corrector.correct(word)
+            self._words.append(word)
             self._buffer = ""
 
     def add_space(self):
-        """Finish the word currently being spelled (start a new one)."""
+        """Finish the word currently being spelled (start a new one).
+
+        No-op when nothing is being spelled, so repeated presses can't create
+        empty tokens / double spaces. Also clears the debounce window so a
+        lingering letter isn't re-committed into the next word.
+        """
         self._flush_buffer()
+        self._recent.clear()
         self._last_committed = None
+        self._empty_streak = 0
+
+    # kept as an explicit alias so the UI can have a distinct "Space" button
+    end_word = add_space
 
     def backspace(self):
         """Delete the last character being spelled, or the last whole token."""

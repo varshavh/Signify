@@ -21,6 +21,7 @@ from .config import (APP_NAME, APP_TAGLINE, COLORS, NUM_HANDS,
                      STABILITY_FRAMES, MIN_CONFIDENCE, check_credentials)
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
+from .autocorrect import AutoCorrector
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -81,8 +82,10 @@ class DetectScreen(ctk.CTkFrame):
         self.on_logout = on_logout
 
         self.recognizer = SignRecognizer(num_hands=NUM_HANDS)
+        self.corrector = AutoCorrector(extra_words=[APP_NAME])
         self.builder = SentenceBuilder(stability=STABILITY_FRAMES,
-                                       min_confidence=MIN_CONFIDENCE)
+                                       min_confidence=MIN_CONFIDENCE,
+                                       corrector=self.corrector)
         self.cap = None
         self.running = False
         self.current_pred = ("—", 0.0)
@@ -136,7 +139,7 @@ class DetectScreen(ctk.CTkFrame):
         self.sentence_box.configure(state="disabled")
 
         ctk.CTkLabel(right, text="Letters spell into a word; pause or press "
-                     "“End word” to finish it. Whole-word signs stand alone.",
+                     "“Space” to finish it. Whole-word signs stand alone.",
                      font=("Arial", 11), text_color=COLORS["muted"],
                      wraplength=340, justify="left").pack(anchor="w", padx=18, pady=(6, 0))
 
@@ -144,7 +147,7 @@ class DetectScreen(ctk.CTkFrame):
         btns = ctk.CTkFrame(right, fg_color="transparent")
         btns.pack(fill="x", padx=18, pady=14)
         grid = [
-            ("✓ End word", self._space, COLORS["surface_2"]),
+            ("␣ Space", self._space, COLORS["surface_2"]),
             ("⌫ Backspace", self._backspace, COLORS["surface_2"]),
             ("🗑 Clear", self._clear, COLORS["surface_2"]),
             ("🔊 Speak", self._speak, COLORS["primary"]),
@@ -164,6 +167,13 @@ class DetectScreen(ctk.CTkFrame):
                                        height=42, fg_color=COLORS["surface_2"],
                                        font=("Arial", 13))
         self.pause_btn.pack(fill="x", padx=18, pady=(0, 8))
+
+        # Autocorrect toggle (applies to fingerspelled words on finalize)
+        self.autocorrect_switch = ctk.CTkSwitch(
+            right, text="Autocorrect spelled words", command=self._toggle_autocorrect,
+            font=("Arial", 13), progress_color=COLORS["accent"])
+        self.autocorrect_switch.select()  # on by default
+        self.autocorrect_switch.pack(anchor="w", padx=18, pady=(0, 10))
 
         # Settings: confidence + stability sliders
         ctk.CTkLabel(right, text="Sensitivity", font=("Arial", 13),
@@ -297,6 +307,9 @@ class DetectScreen(ctk.CTkFrame):
     def _set_conf(self, val):
         self.builder.min_confidence = float(val)
         self.conf_val.configure(text=f"min confidence: {float(val):.2f}")
+
+    def _toggle_autocorrect(self):
+        self.builder.autocorrect_enabled = bool(self.autocorrect_switch.get())
 
     def _logout(self):
         self.stop()
