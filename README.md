@@ -10,8 +10,8 @@ with a modern dark UI in CustomTkinter — no browser, no cloud, no database.
 
 ## ✨ Features
 
-- **Live webcam recognition** of 42 ASL signs (A–Z + 16 common words) using a
-  pretrained MediaPipe gesture model.
+- **Live webcam recognition** of 49 ASL signs (A–Z + 23 words) using a
+  MediaPipe gesture model.
 - **Hand-skeleton overlay** drawn on the video feed.
 - **Sentence builder** with temporal debouncing — flickery detections are
   smoothed into clean, committed words.
@@ -81,9 +81,16 @@ password:  admin123
 **Letters:** A–Z
 **Words:** Hello, Bye, Deaf, ILoveYou, Learn, Me, Meet, Name, No, NotOk, Ok,
 Pen, Please, Tell, Thankyou, Yes
+**Added words** (trained from a cropped YOLO dataset): Father, Fine, Friend,
+Help, MyNameIs, Who, You
 
-> Accuracy varies per sign and depends on lighting and hand position. Some signs
-> (e.g. Ok, Name) are recognized less reliably than others.
+> Accuracy varies per sign and depends on lighting and hand position. The
+> original 42 signs are the most reliable. Among the added words, **Fine** and
+> **You** work best; others (built from fewer landmark-detectable images) are
+> less reliable.
+
+The model lives at `models/signify_extended.task` (the original 42-class model
+is kept at `models/sign_language_recognizer.task`).
 
 ---
 
@@ -98,8 +105,11 @@ Signify/
 │   ├── sentence_builder.py    # debouncing + sentence editing
 │   └── config.py              # theme + fixed credentials
 ├── models/
-│   └── sign_language_recognizer.task   # pretrained MediaPipe model
+│   ├── signify_extended.task           # 49-class model used by the app
+│   └── sign_language_recognizer.task   # original 42-class model (kept)
 ├── sign_language_dataset/     # sample images per class
+├── build_combined_dataset.py  # crops 7 YOLO word-signs + merges dataset
+├── train_gesture_model.py     # trains the extended .task (MediaPipe Model Maker)
 ├── Code For Training the Model/        # original training notebook
 └── requirements.txt
 ```

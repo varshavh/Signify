@@ -7,11 +7,15 @@
 
 # python
 .venv/
+.venv-train/
 __pycache__/
 *.pyc
 
 # app runtime output
 saved_sentences.txt
+
+# regenerable via build_combined_dataset.py (kept out of git to avoid bloat)
+combined_dataset/
 
 # testing
 /coverage
@@ -29,3 +33,9 @@ saved_sentences.txt
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# MediaPipe Model Maker training artifacts (only the .task is needed)
+models/epoch_models/
+models/logs/
+models/best_model_weights.*
+models/checkpoint

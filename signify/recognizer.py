@@ -15,7 +15,7 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
-MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "sign_language_recognizer.task"
+MODEL_PATH = Path(__file__).resolve().parent.parent / "models" / "signify_extended.task"
 
 # MediaPipe hand-connection pairs for drawing the skeleton.
 _HAND_CONNECTIONS = [
