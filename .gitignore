@@ -13,6 +13,9 @@ __pycache__/
 
 # app runtime output
 saved_sentences.txt
+data/app_state.json
+data/*.tmp
+data/*.db
 
 # regenerable via build_combined_dataset.py (kept out of git to avoid bloat)
 combined_dataset/

@@ -3,23 +3,26 @@
 **Real-time sign-language recognition — a pure-Python desktop app.**
 
 Signify reads American Sign Language gestures from your webcam, recognizes them
-in real time, and lets you build, edit, speak, and save whole sentences. Built
-with a modern dark UI in CustomTkinter — no browser, no cloud, no database.
+in real time, and lets you build, edit, speak, translate, and save sentences.
+Built with a modern dark UI in CustomTkinter — camera stays on this machine.
 
 ---
 
 ## ✨ Features
 
-- **Live webcam recognition** of 49 ASL signs (A–Z + 23 words) using a
-  MediaPipe gesture model.
-- **Hand-skeleton overlay** drawn on the video feed.
-- **Sentence builder** with temporal debouncing — flickery detections are
-  smoothed into clean, committed words.
-- **Full editing:** space, backspace, clear, plus a live "committed words" log.
-- **🔊 Speak** the sentence aloud (offline text-to-speech).
-- **📋 Copy** to clipboard and **💾 Save** sentences to `saved_sentences.txt`.
-- **Adjustable sensitivity** (confidence slider) and **pause/resume** detection.
-- **Login screen** with fixed admin credentials (no database).
+- **Live webcam recognition** of ASL letters and words using a MediaPipe
+  gesture model, with a hand-skeleton overlay.
+- **Sentence builder** with temporal debouncing, fingerspelling, Space /
+  Backspace / Clear, speak, copy, and save.
+- **Profile** — name, email, location, bio stored on this device.
+- **Dashboard** — screen time (today / week / month / year), usage charts,
+  most-signed gestures, saved-sentence history, practice stats.
+- **Practice Studio** — prompted-sign quiz with live camera scoring.
+- **Translator** — type or paste, translate across languages, speak, copy.
+- **About + Settings** — confidence, speak speed, auto-speak, autocorrect.
+- **Local accounts** — sign up with your profile; sign in later to load it from
+  a SQLite database on this computer.
+- **Home translator** — translate the current sentence without leaving detection.
 
 ---
 
@@ -31,6 +34,7 @@ with a modern dark UI in CustomTkinter — no browser, no cloud, no database.
 | Webcam / imaging | OpenCV + Pillow |
 | Recognition | MediaPipe Tasks (Gesture Recognizer) |
 | Text-to-speech | pyttsx3 (offline) |
+| Accounts / stats | SQLite (`data/signify.db`) |
 
 Everything is **Python** — the old React/Firebase web stack has been removed.
 
@@ -56,23 +60,25 @@ pip install -r requirements.txt
 python run.py
 ```
 
-### Login
-```
-username:  admin
-password:  admin123
-```
-(Change these in `signify/config.py`.)
+Same app on **Windows**: install Python **3.10–3.12** (not 3.13/3.14), allow the camera under Windows privacy settings, then `python -m venv .venv`, `.venv\Scripts\activate`, `pip install -r requirements.txt`, `python run.py`. Speak uses Windows SAPI; translation still needs internet. Accounts live in `data\signify.db` on that PC.
+
+### First launch
+
+If no account exists, Signify opens **Create account**. Fill username, password,
+name, email, location, and bio. Next time, **Sign In** loads that profile,
+screen time, saved sentences, and practice stats from `data/signify.db`.
 
 ---
 
 ## 🎬 Using the app
 
-1. Sign in with the demo credentials.
-2. Allow camera access when prompted.
-3. Make a sign and hold it steady — once it's stable, the word is added to your
-   sentence on the right.
-4. Use **Space / Backspace / Clear** to edit, **Speak** to hear it, **Copy** or
-   **Save** to keep it.
+1. Create an account (or sign in if you already have one).
+2. **Home** — camera, sentence builder, and translate the sentence in place.
+3. **Dashboard** — screen time and your most-used signs.
+4. **Profile** — edit your name and details (saved locally).
+5. **Practice** — the app prompts a sign; hold it until it scores.
+6. **Translate** — type a sentence, pick a language, speak or copy.
+7. **Settings** — confidence, voice speed, auto-speak, autocorrect.
 
 ---
 
@@ -89,8 +95,8 @@ Help, MyNameIs, Who, You
 > **You** work best; others (built from fewer landmark-detectable images) are
 > less reliable.
 
-The model lives at `models/signify_extended.task` (the original 42-class model
-is kept at `models/sign_language_recognizer.task`).
+The model used by the app is `models/sign_language_recognizer.task` (42 classes).
+An experimental 49-class file `models/signify_extended.task` may also be present.
 
 ---
 
@@ -100,10 +106,14 @@ is kept at `models/sign_language_recognizer.task`).
 Signify/
 ├── run.py                     # entry point
 ├── signify/
-│   ├── app.py                 # CustomTkinter UI (login + detection)
+│   ├── app.py                 # sign in / sign up, nav, live detection
+│   ├── pages.py               # dashboard, profile, practice, translator
+│   ├── store.py               # local SQLite accounts + per-user data
+│   ├── db.py                  # schema
+│   ├── translate.py           # sentence translation helper
 │   ├── recognizer.py          # MediaPipe gesture-model wrapper
 │   ├── sentence_builder.py    # debouncing + sentence editing
-│   └── config.py              # theme + fixed credentials
+│   └── config.py              # theme + practice signs
 ├── models/
 │   ├── signify_extended.task           # 49-class model used by the app
 │   └── sign_language_recognizer.task   # original 42-class model (kept)

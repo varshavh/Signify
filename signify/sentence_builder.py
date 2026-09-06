@@ -127,6 +127,19 @@ class SentenceBuilder:
     # kept as an explicit alias so the UI can have a distinct "Space" button
     end_word = add_space
 
+    def add_period(self):
+        """Finish the current word and put a full stop on the last token."""
+        self._flush_buffer()
+        self._recent.clear()
+        self._last_committed = None
+        self._empty_streak = 0
+        if not self._words:
+            return
+        last = self._words[-1]
+        if last.endswith((".", "!", "?")):
+            return
+        self._words[-1] = last + "."
+
     def backspace(self):
         """Delete the last character being spelled, or the last whole token."""
         if self._buffer:
