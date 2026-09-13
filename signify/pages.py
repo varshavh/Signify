@@ -14,7 +14,7 @@ from .camera import open_webcam
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
 from .translate import LANG_NAMES, translate_text
-from .tts import speak
+from .tts import speak, pop_status
 from .widgets import LanguagePicker
 
 PHRASES = [
@@ -452,9 +452,21 @@ class TranslatorPage(ctk.CTkFrame):
                       fg_color=COLORS["surface_2"], command=self._copy).pack(
                           side="left", padx=6)
 
-        self.status = ctk.CTkLabel(inner, text="Needs a network connection for translation.",
+        self.status = ctk.CTkLabel(inner, text="Needs a network connection for translation and Speak translation.",
                                    text_color=COLORS["muted"])
         self.status.pack(pady=(0, 18))
+        self._tts_job = self.after(400, self._poll_tts)
+
+    def _poll_tts(self):
+        note = pop_status()
+        if note:
+            self.status.configure(text=note)
+        self._tts_job = self.after(400, self._poll_tts)
+
+    def stop(self):
+        if getattr(self, "_tts_job", None):
+            self.after_cancel(self._tts_job)
+            self._tts_job = None
 
     def _use_phrase(self, phrase):
         self.inp.delete("1.0", "end")

@@ -24,7 +24,7 @@ from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
 from .autocorrect import AutoCorrector
 from .store import AppStore, AuthError, LocalAuth
-from .tts import speak
+from .tts import speak, pop_status
 from .translate import LANG_NAMES, translate_text
 from .widgets import LanguagePicker, PasswordEntry
 from .pages import (AboutPage, DashboardPage, PracticePage, ProfilePage,
@@ -418,6 +418,9 @@ class DetectScreen(ctk.CTkFrame):
         if self._cam_error:
             self.video_label.configure(text="⚠ Could not open webcam")
             self._cam_error = None
+        note = pop_status()
+        if note:
+            self.tstatus.configure(text=note)
         payload = None
         tr = None
         with self._lock:
@@ -657,7 +660,7 @@ class DetectScreen(ctk.CTkFrame):
         if not text:
             self.tstatus.configure(text="Translate first, then press Speak translation.")
             return
-        self.tstatus.configure(text=f"Speaking {self._target_lang()}…")
+        self.tstatus.configure(text=f"Speaking {self._target_lang()}… (needs internet)")
         speak(
             text,
             rate=int(self.store.settings.get("tts_rate", 160)),
