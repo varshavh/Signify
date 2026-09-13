@@ -18,7 +18,7 @@ import cv2
 import customtkinter as ctk
 from PIL import Image
 
-from .config import APP_NAME, COLORS, NUM_HANDS, STABILITY_FRAMES
+from .config import APP_NAME, COLORS, NUM_HANDS, SIDEBAR_WIDTH, STABILITY_FRAMES
 from .camera import open_webcam
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
@@ -213,16 +213,22 @@ class DetectScreen(ctk.CTkFrame):
 
     def _build_ui(self):
         body = ctk.CTkFrame(self, fg_color=COLORS["bg"])
-        body.pack(fill="both", expand=True, padx=16, pady=16)
+        body.pack(fill="both", expand=True, padx=12, pady=12)
+        body.grid_columnconfigure(0, weight=1)
+        body.grid_columnconfigure(1, weight=0, minsize=SIDEBAR_WIDTH)
+        body.grid_rowconfigure(0, weight=1)
 
         left = ctk.CTkFrame(body, fg_color=COLORS["surface"], corner_radius=16)
-        left.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
         left.grid_rowconfigure(0, weight=1)
         left.grid_columnconfigure(0, weight=1)
 
-        self.video_label = ctk.CTkLabel(left, text="Starting camera…",
+        self.video_host = ctk.CTkFrame(left, fg_color="#0a0c12", corner_radius=12)
+        self.video_host.grid(row=0, column=0, sticky="nsew", padx=12, pady=(12, 6))
+        self.video_host.grid_propagate(False)
+        self.video_label = ctk.CTkLabel(self.video_host, text="Starting camera…",
                                         text_color=COLORS["muted"])
-        self.video_label.grid(row=0, column=0, sticky="nsew", padx=12, pady=(12, 6))
+        self.video_label.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         self.subs = ctk.CTkFrame(left, fg_color="#0a0c12", corner_radius=12)
         ctk.CTkLabel(self.subs, text="EN", font=("Arial", 11, "bold"),
@@ -246,10 +252,11 @@ class DetectScreen(ctk.CTkFrame):
                                        text_color=COLORS["accent"])
         self.pred_label.grid(row=2, column=0, pady=(0, 10))
 
-        right = ctk.CTkFrame(body, fg_color=COLORS["surface"],
-                             corner_radius=16, width=400)
-        right.pack(side="right", fill="y")
-        right.pack_propagate(False)
+        right = ctk.CTkScrollableFrame(
+            body, fg_color=COLORS["surface"], corner_radius=16,
+            width=SIDEBAR_WIDTH,
+        )
+        right.grid(row=0, column=1, sticky="nsew")
 
         who = self.store.profile.get("name") or self.store.username
         ctk.CTkLabel(right, text=f"Logged in as {who}", font=("Arial", 12),
@@ -333,17 +340,17 @@ class DetectScreen(ctk.CTkFrame):
         if pref not in LANG_NAMES:
             pref = "Hindi"
         self.tlang = LanguagePicker(
-            right, LANG_NAMES, value=pref, command=self._on_lang_chosen, width=360,
+            right, LANG_NAMES, value=pref, command=self._on_lang_chosen, width=SIDEBAR_WIDTH - 40,
         )
         self.tlang.pack(fill="x", padx=18)
         trow = ctk.CTkFrame(right, fg_color="transparent")
         trow.pack(fill="x", padx=18, pady=(8, 0))
-        ctk.CTkButton(trow, text="Translate", width=170, height=32,
+        ctk.CTkButton(trow, text="Translate", height=32,
                       fg_color=COLORS["info"], command=self._translate_sentence).pack(
-                          side="left")
-        ctk.CTkButton(trow, text="Speak", width=170, height=32,
+                          side="left", expand=True, fill="x")
+        ctk.CTkButton(trow, text="Speak", height=32,
                       fg_color=COLORS["surface_2"], command=self._speak_translation).pack(
-                          side="left", padx=(8, 0))
+                          side="left", expand=True, fill="x", padx=(8, 0))
         self.tbox = ctk.CTkTextbox(right, height=72, corner_radius=12,
                                    font=("Arial", 14), fg_color=COLORS["surface_2"],
                                    text_color=COLORS["text"], wrap="word")
@@ -440,12 +447,13 @@ class DetectScreen(ctk.CTkFrame):
 
             rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(rgb)
-            lw = self.video_label.winfo_width()
-            lh = self.video_label.winfo_height()
+            host = getattr(self, "video_host", self.video_label)
+            lw = host.winfo_width()
+            lh = host.winfo_height()
             if lw >= 80 and lh >= 80:
                 self._video_size = (lw, lh)
             img = self._cover(img, self._video_size)
-            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+            ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=self._video_size)
             self.video_label.configure(image=ctk_img, text="")
             self.video_label.image = ctk_img
 
@@ -679,7 +687,7 @@ class MainShell(ctk.CTkFrame):
         nav = ctk.CTkFrame(top, fg_color="transparent")
         nav.pack(side="right", padx=8)
         for pid, label in NAV:
-            btn = ctk.CTkButton(nav, text=label, width=108, height=32, corner_radius=8,
+            btn = ctk.CTkButton(nav, text=label, width=92, height=32, corner_radius=8,
                                 fg_color="transparent", hover_color=COLORS["surface_2"],
                                 command=lambda p=pid: self.show(p))
             btn.pack(side="left", padx=2)
@@ -756,14 +764,23 @@ class SignifyApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title(APP_NAME)
-        self.geometry("1280x780")
-        self.minsize(1080, 680)
         self.configure(fg_color=COLORS["bg"])
+        self._fit_to_screen()
         self.auth = LocalAuth()
         self.store = None
         self.current = None
         self.show_login()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _fit_to_screen(self):
+        """Laptop / high-DPI Windows: don't demand a 1280×780 window."""
+        self.update_idletasks()
+        sw = max(self.winfo_screenwidth(), 800)
+        sh = max(self.winfo_screenheight(), 600)
+        w = min(1280, max(880, sw - 64))
+        h = min(780, max(560, sh - 96))
+        self.geometry(f"{w}x{h}")
+        self.minsize(min(820, sw - 48), min(520, sh - 72))
 
     def _swap(self, frame):
         if self.current is not None:

@@ -19,6 +19,9 @@ COLORS = {
     "danger":    "#ff5c7c",
 }
 
+# Home / Practice side panel. Reserved so the camera image cannot eat this column.
+SIDEBAR_WIDTH = 340
+
 # Signs used in Practice Studio (reliable subset of the 42-class model).
 PRACTICE_SIGNS = [
     "Hello", "Bye", "Yes", "No", "Please", "Thankyou", "Ok", "Name",

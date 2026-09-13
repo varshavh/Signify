@@ -9,7 +9,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from .charts import draw_bars, format_duration
-from .config import APP_NAME, APP_TAGLINE, COLORS, NUM_HANDS, PRACTICE_SIGNS
+from .config import APP_NAME, APP_TAGLINE, COLORS, NUM_HANDS, PRACTICE_SIGNS, SIDEBAR_WIDTH
 from .camera import open_webcam
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
@@ -229,17 +229,28 @@ class PracticePage(ctk.CTkFrame):
         self.target = random.choice(PRACTICE_SIGNS)
         self.locked = False
 
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0, minsize=SIDEBAR_WIDTH)
+        self.grid_rowconfigure(0, weight=1)
+
         left = _card(self)
-        left.pack(side="left", fill="both", expand=True, padx=(16, 8), pady=16)
-        self.video = ctk.CTkLabel(left, text="Starting camera…", text_color=COLORS["muted"])
-        self.video.pack(fill="both", expand=True, padx=12, pady=12)
+        left.grid(row=0, column=0, sticky="nsew", padx=(16, 8), pady=16)
+        left.grid_rowconfigure(0, weight=1)
+        left.grid_columnconfigure(0, weight=1)
+
+        self.video_host = ctk.CTkFrame(left, fg_color="#0a0c12", corner_radius=12)
+        self.video_host.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
+        self.video_host.grid_propagate(False)
+        self.video = ctk.CTkLabel(self.video_host, text="Starting camera…", text_color=COLORS["muted"])
+        self.video.place(relx=0, rely=0, relwidth=1, relheight=1)
         self.live = ctk.CTkLabel(left, text="Detecting…", font=("Arial", 18, "bold"),
                                  text_color=COLORS["accent"])
-        self.live.pack(pady=(0, 14))
+        self.live.grid(row=1, column=0, pady=(0, 14))
 
-        right = _card(self, width=400)
-        right.pack(side="right", fill="y", padx=(8, 16), pady=16)
-        right.pack_propagate(False)
+        right = _card(self, width=SIDEBAR_WIDTH)
+        right.grid(row=0, column=1, sticky="nsew", padx=(8, 16), pady=16)
+        right.grid_propagate(False)
+        right.configure(width=SIDEBAR_WIDTH)
 
         ctk.CTkLabel(right, text="Practice Studio", font=("Arial", 22, "bold"),
                      text_color=COLORS["text"]).pack(anchor="w", padx=20, pady=(22, 4))
@@ -329,8 +340,11 @@ class PracticePage(ctk.CTkFrame):
 
             rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(rgb)
-            lw = max(self.video.winfo_width(), 480)
-            lh = max(self.video.winfo_height(), 360)
+            host = getattr(self, "video_host", self.video)
+            lw = host.winfo_width()
+            lh = host.winfo_height()
+            if lw < 80 or lh < 80:
+                lw, lh = 480, 360
             img.thumbnail((lw, lh))
             ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
             self.video.configure(image=ctk_img, text="")
