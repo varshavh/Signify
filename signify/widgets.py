@@ -65,3 +65,39 @@ class LanguagePicker(ctk.CTkFrame):
             self._value = name
             arrow = "▴" if self._open else "▾"
             self._btn.configure(text=f"{name}   {arrow}")
+
+
+class PasswordEntry(ctk.CTkFrame):
+    """Password field with a Show / Hide button beside it."""
+
+    def __init__(self, master, placeholder="Password", width=300, height=44, **kwargs):
+        placeholder = kwargs.pop("placeholder_text", placeholder)
+        kwargs.setdefault("fg_color", "transparent")
+        super().__init__(master, **kwargs)
+        self._hidden = True
+        btn_w = 72
+        self.entry = ctk.CTkEntry(
+            self, placeholder_text=placeholder, show="•",
+            width=max(120, width - btn_w - 8), height=height,
+        )
+        self.entry.pack(side="left")
+        self._btn = ctk.CTkButton(
+            self, text="Show", width=btn_w, height=height, corner_radius=10,
+            fg_color=COLORS["surface_2"], hover_color=COLORS["primary"],
+            font=("Arial", 13), command=self.toggle,
+        )
+        self._btn.pack(side="left", padx=(8, 0))
+
+    def toggle(self):
+        self._hidden = not self._hidden
+        self.entry.configure(show="•" if self._hidden else "")
+        self._btn.configure(text="Show" if self._hidden else "Hide")
+
+    def get(self):
+        return self.entry.get()
+
+    def delete(self, first, last=None):
+        self.entry.delete(first, last if last is not None else "end")
+
+    def bind(self, sequence, func, add=True):
+        return self.entry.bind(sequence, func, add=True)

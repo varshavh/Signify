@@ -26,7 +26,7 @@ from .autocorrect import AutoCorrector
 from .store import AppStore, AuthError, LocalAuth
 from .tts import speak
 from .translate import LANG_NAMES, translate_text
-from .widgets import LanguagePicker
+from .widgets import LanguagePicker, PasswordEntry
 from .pages import (AboutPage, DashboardPage, PracticePage, ProfilePage,
                     SettingsPage, TranslatorPage)
 
@@ -87,8 +87,7 @@ class AuthScreen(ctk.CTkFrame):
         last = self.auth.last_username()
         if last:
             self.user.insert(0, last)
-        self.pw = ctk.CTkEntry(card, placeholder_text="Password", show="•",
-                               width=300, height=44)
+        self.pw = PasswordEntry(card, placeholder="Password", width=300, height=44)
         self.pw.pack(pady=6)
         self.pw.bind("<Return>", lambda e: self._try_login())
 
@@ -135,16 +134,16 @@ class AuthScreen(ctk.CTkFrame):
         ctk.CTkLabel(wrap, text="Fill your profile now — it loads again on every login.",
                      text_color=COLORS["muted"], wraplength=380).pack(padx=16)
 
-        def field(placeholder, show=None):
+        def field(placeholder):
             e = ctk.CTkEntry(wrap, placeholder_text=placeholder, width=320, height=42)
-            if show:
-                e.configure(show=show)
             e.pack(pady=6)
             return e
 
         self.su_user = field("Username")
-        self.su_pw = field("Password", show="•")
-        self.su_pw2 = field("Confirm password", show="•")
+        self.su_pw = PasswordEntry(wrap, placeholder="Password", width=320, height=42)
+        self.su_pw.pack(pady=6)
+        self.su_pw2 = PasswordEntry(wrap, placeholder="Confirm password", width=320, height=42)
+        self.su_pw2.pack(pady=6)
         self.su_name = field("Full name")
         self.su_email = field("Email")
         self.su_loc = field("Location (e.g. India)")
@@ -245,7 +244,12 @@ class DetectScreen(ctk.CTkFrame):
             self.subs, text="Translation appears here", font=("Arial", 20),
             text_color=COLORS["info"], wraplength=720, justify="left", anchor="w",
         )
-        self.sub_tr.pack(fill="x", padx=14, pady=(0, 12))
+        self.sub_tr.pack(fill="x", padx=14, pady=(0, 8))
+        ctk.CTkButton(
+            self.subs, text="🔊 Speak translation", height=28, width=180,
+            fg_color=COLORS["surface_2"], hover_color=COLORS["primary"],
+            font=("Arial", 12), command=self._speak_translation,
+        ).pack(anchor="w", padx=14, pady=(0, 10))
         self.subs.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 6))
 
         self.pred_label = ctk.CTkLabel(left, text="Detecting…", font=("Arial", 16, "bold"),
@@ -348,7 +352,7 @@ class DetectScreen(ctk.CTkFrame):
         ctk.CTkButton(trow, text="Translate", height=32,
                       fg_color=COLORS["info"], command=self._translate_sentence).pack(
                           side="left", expand=True, fill="x")
-        ctk.CTkButton(trow, text="Speak", height=32,
+        ctk.CTkButton(trow, text="🔊 Speak translation", height=32,
                       fg_color=COLORS["surface_2"], command=self._speak_translation).pack(
                           side="left", expand=True, fill="x", padx=(8, 0))
         self.tbox = ctk.CTkTextbox(right, height=72, corner_radius=12,
@@ -638,9 +642,27 @@ class DetectScreen(ctk.CTkFrame):
         self._sync_en_sub()
         self._schedule_live_translate()
 
+    def _translation_text(self) -> str:
+        box = self.tbox.get("1.0", "end").strip()
+        if box:
+            return box
+        sub = (self.sub_tr.cget("text") or "").strip()
+        skip = {"", "Translation appears here", "Translation unavailable", "…"}
+        if sub not in skip:
+            return sub
+        return ""
+
     def _speak_translation(self):
-        text = self.tbox.get("1.0", "end").strip() or self.builder.text().strip()
-        speak(text, rate=int(self.store.settings.get("tts_rate", 160)))
+        text = self._translation_text()
+        if not text:
+            self.tstatus.configure(text="Translate first, then press Speak translation.")
+            return
+        self.tstatus.configure(text=f"Speaking {self._target_lang()}…")
+        speak(
+            text,
+            rate=int(self.store.settings.get("tts_rate", 160)),
+            language=self._target_lang(),
+        )
 
     def stop(self):
         self.running = False

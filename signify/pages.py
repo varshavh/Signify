@@ -395,7 +395,7 @@ class TranslatorPage(ctk.CTkFrame):
         ctk.CTkLabel(inner, text="Speech & Text Translator",
                      font=("Arial", 26, "bold"), text_color=COLORS["text"]).pack(
                          pady=(22, 2))
-        ctk.CTkLabel(inner, text="Type or paste — translate, then speak it back.",
+        ctk.CTkLabel(inner, text="Type or paste — Translate, then Speak translation (click only).",
                      text_color=COLORS["muted"]).pack()
 
         langs = ctk.CTkFrame(inner, fg_color="transparent")
@@ -439,11 +439,14 @@ class TranslatorPage(ctk.CTkFrame):
 
         actions = ctk.CTkFrame(inner, fg_color="transparent")
         actions.pack(pady=(4, 10))
-        ctk.CTkButton(actions, text="Speak", width=140, height=42,
-                      fg_color=COLORS["surface_2"], command=self._speak).pack(
+        ctk.CTkButton(actions, text="Speak input", width=140, height=42,
+                      fg_color=COLORS["surface_2"], command=self._speak_input).pack(
                           side="left", padx=6)
         ctk.CTkButton(actions, text="Translate", width=160, height=42,
                       fg_color=COLORS["info"], command=self._translate).pack(
+                          side="left", padx=6)
+        ctk.CTkButton(actions, text="🔊 Speak translation", width=180, height=42,
+                      fg_color=COLORS["primary"], command=self._speak_translation).pack(
                           side="left", padx=6)
         ctk.CTkButton(actions, text="Copy", width=140, height=42,
                       fg_color=COLORS["surface_2"], command=self._copy).pack(
@@ -484,9 +487,32 @@ class TranslatorPage(ctk.CTkFrame):
         self.out.insert("1.0", text)
         self.out.configure(state="normal")
 
+    def _speak_input(self):
+        text = self.inp.get("1.0", "end").strip()
+        if not text:
+            self.status.configure(text="Type something first.")
+            return
+        self.status.configure(text=f"Speaking {self.src.get()}…")
+        speak(
+            text,
+            rate=int(self.store.settings.get("tts_rate", 160)),
+            language=self.src.get(),
+        )
+
+    def _speak_translation(self):
+        text = self.out.get("1.0", "end").strip()
+        if not text:
+            self.status.configure(text="Translate first, then press Speak translation.")
+            return
+        self.status.configure(text=f"Speaking {self.dst.get()}…")
+        speak(
+            text,
+            rate=int(self.store.settings.get("tts_rate", 160)),
+            language=self.dst.get(),
+        )
+
     def _speak(self):
-        text = self.out.get("1.0", "end").strip() or self.inp.get("1.0", "end").strip()
-        speak(text, rate=int(self.store.settings.get("tts_rate", 160)))
+        self._speak_translation()
 
     def _copy(self):
         text = self.out.get("1.0", "end").strip() or self.inp.get("1.0", "end").strip()
