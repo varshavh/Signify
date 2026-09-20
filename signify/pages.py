@@ -15,6 +15,7 @@ from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
 from .translate import LANG_NAMES, translate_text
 from .tts import speak, pop_status
+from .emoji_img import emoji_ctk
 from .widgets import LanguagePicker
 
 PHRASES = [
@@ -539,7 +540,10 @@ class AboutPage(ctk.CTkFrame):
         card = _card(self, width=720)
         card.place(relx=0.5, rely=0.5, anchor="center")
 
-        ctk.CTkLabel(card, text="👐", font=("Arial", 54)).pack(pady=(28, 0))
+        hand = emoji_ctk("👐", 48)
+        hand_lbl = ctk.CTkLabel(card, text="", image=hand)
+        hand_lbl.pack(pady=(28, 0))
+        hand_lbl.image = hand
         ctk.CTkLabel(card, text=APP_NAME, font=("Arial", 32, "bold"),
                      text_color=COLORS["text"]).pack()
         ctk.CTkLabel(card, text=APP_TAGLINE, text_color=COLORS["muted"]).pack(pady=(0, 12))

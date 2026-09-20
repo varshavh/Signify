@@ -8,6 +8,7 @@ widgets stay inside the normal layout so clicks keep working.
 import customtkinter as ctk
 
 from .config import AUTH_FIELD_HEIGHT, COLORS
+from .emoji_img import emoji_ctk
 
 
 class LanguagePicker(ctk.CTkFrame):
@@ -77,6 +78,8 @@ class PasswordEntry(ctk.CTkFrame):
         self.pack_propagate(False)
         self._hidden = True
         self._eye_w = 36
+        self._img_show = emoji_ctk("👁", 20)
+        self._img_hide = emoji_ctk("🙈", 20)
 
         self.entry = ctk.CTkEntry(
             self, placeholder_text=placeholder, show="•",
@@ -84,12 +87,11 @@ class PasswordEntry(ctk.CTkFrame):
         )
         self.entry.place(x=0, y=0)
 
-        # Overlay inside the entry (right edge). Entry is full width so the box looks uniform.
+        # Color emoji image — CTk text emoji is B/W on Windows.
         self._btn = ctk.CTkButton(
-            self, text="👁", width=self._eye_w, height=height - 10, corner_radius=6,
+            self, text="", width=self._eye_w, height=height - 10, corner_radius=6,
             fg_color="transparent", hover_color=COLORS["surface_2"],
-            text_color=COLORS["muted"], border_width=0,
-            font=("Arial", 15), command=self.toggle,
+            image=self._img_show, command=self.toggle,
         )
         self._btn.place(x=width - self._eye_w - 8, y=5)
         self._btn.lift()
@@ -97,7 +99,7 @@ class PasswordEntry(ctk.CTkFrame):
     def toggle(self):
         self._hidden = not self._hidden
         self.entry.configure(show="•" if self._hidden else "")
-        self._btn.configure(text="👁" if self._hidden else "🙈")
+        self._btn.configure(image=self._img_show if self._hidden else self._img_hide)
 
     def get(self):
         return self.entry.get()

@@ -29,6 +29,7 @@ from .autocorrect import AutoCorrector
 from .store import AppStore, AuthError, LocalAuth
 from .tts import speak, pop_status
 from .translate import LANG_NAMES, translate_text
+from .emoji_img import emoji_ctk
 from .widgets import LanguagePicker, PasswordEntry
 from .pages import (AboutPage, DashboardPage, PracticePage, ProfilePage,
                     SettingsPage, TranslatorPage)
@@ -77,7 +78,10 @@ class AuthScreen(ctk.CTkFrame):
         card = self._card(440, 500)
         empty = self.auth.user_count() == 0
 
-        ctk.CTkLabel(card, text="👐", font=("Arial", 52)).pack(pady=(32, 2))
+        hand = emoji_ctk("👐", 44)
+        hand_lbl = ctk.CTkLabel(card, text="", image=hand)
+        hand_lbl.pack(pady=(32, 2))
+        hand_lbl.image = hand
         ctk.CTkLabel(card, text=APP_NAME, font=("Arial", 32, "bold"),
                      text_color=COLORS["text"]).pack()
         hint = ("No account yet — create one to get started." if empty
@@ -719,8 +723,14 @@ class MainShell(ctk.CTkFrame):
         top = ctk.CTkFrame(self, fg_color=COLORS["surface"], height=62, corner_radius=0)
         top.pack(fill="x")
         top.pack_propagate(False)
-        ctk.CTkLabel(top, text=f"👐  {APP_NAME}", font=("Arial", 20, "bold"),
-                     text_color=COLORS["text"]).pack(side="left", padx=18)
+        nav_hand = emoji_ctk("👐", 22)
+        brand = ctk.CTkFrame(top, fg_color="transparent")
+        brand.pack(side="left", padx=18)
+        hand_lbl = ctk.CTkLabel(brand, text="", image=nav_hand)
+        hand_lbl.pack(side="left", padx=(0, 6))
+        hand_lbl.image = nav_hand
+        ctk.CTkLabel(brand, text=APP_NAME, font=("Arial", 20, "bold"),
+                     text_color=COLORS["text"]).pack(side="left")
 
         who = store.profile.get("name") or store.username
         ctk.CTkLabel(top, text=who, font=("Arial", 13),
