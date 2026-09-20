@@ -3,6 +3,10 @@
 APP_NAME = "Signify"
 APP_TAGLINE = "Real-time Sign Language Recognition"
 
+# Login / sign-up form sizing (keep every field the same width).
+AUTH_FIELD_WIDTH = 320
+AUTH_FIELD_HEIGHT = 44
+
 
 # ---- Theme -----------------------------------------------------------------
 COLORS = {

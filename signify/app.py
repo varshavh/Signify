@@ -18,7 +18,10 @@ import cv2
 import customtkinter as ctk
 from PIL import Image
 
-from .config import APP_NAME, COLORS, NUM_HANDS, SIDEBAR_WIDTH, STABILITY_FRAMES
+from .config import (
+    APP_NAME, AUTH_FIELD_HEIGHT, AUTH_FIELD_WIDTH, COLORS, NUM_HANDS,
+    SIDEBAR_WIDTH, STABILITY_FRAMES,
+)
 from .camera import open_webcam
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
@@ -82,12 +85,17 @@ class AuthScreen(ctk.CTkFrame):
         ctk.CTkLabel(card, text=hint, font=("Arial", 13),
                      text_color=COLORS["muted"], wraplength=340).pack(pady=(4, 18))
 
-        self.user = ctk.CTkEntry(card, placeholder_text="Username", width=300, height=44)
+        self.user = ctk.CTkEntry(
+            card, placeholder_text="Username *", width=AUTH_FIELD_WIDTH,
+            height=AUTH_FIELD_HEIGHT,
+        )
         self.user.pack(pady=6)
         last = self.auth.last_username()
         if last:
             self.user.insert(0, last)
-        self.pw = PasswordEntry(card, placeholder="Password", width=300, height=44)
+        self.pw = PasswordEntry(
+            card, placeholder="Password *", width=AUTH_FIELD_WIDTH, height=AUTH_FIELD_HEIGHT,
+        )
         self.pw.pack(pady=6)
         self.pw.bind("<Return>", lambda e: self._try_login())
 
@@ -95,11 +103,11 @@ class AuthScreen(ctk.CTkFrame):
                                 text_color=COLORS["danger"], wraplength=320)
         self.msg.pack(pady=(8, 0))
 
-        ctk.CTkButton(card, text="Sign In", width=300, height=46, corner_radius=10,
+        ctk.CTkButton(card, text="Sign In", width=AUTH_FIELD_WIDTH, height=46, corner_radius=10,
                       font=("Arial", 15, "bold"), fg_color=COLORS["primary"],
                       hover_color=COLORS["primary_h"],
                       command=self._try_login).pack(pady=(12, 8))
-        ctk.CTkButton(card, text="Create account", width=300, height=42, corner_radius=10,
+        ctk.CTkButton(card, text="Create account", width=AUTH_FIELD_WIDTH, height=42, corner_radius=10,
                       fg_color=COLORS["surface_2"], hover_color=COLORS["info"],
                       command=self._show_signup).pack()
         ctk.CTkLabel(card, text="Accounts stay on this computer (local database).",
@@ -109,6 +117,12 @@ class AuthScreen(ctk.CTkFrame):
             self.after(80, self._show_signup)
 
     def _try_login(self):
+        if not self.user.get().strip():
+            self.msg.configure(text="Username is required.")
+            return
+        if not self.pw.get():
+            self.msg.configure(text="Password is required.")
+            return
         try:
             username = self.auth.login(self.user.get(), self.pw.get())
         except AuthError as exc:
@@ -131,35 +145,46 @@ class AuthScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(wrap, text="Create account", font=("Arial", 26, "bold"),
                      text_color=COLORS["text"]).pack(pady=(18, 4), padx=16)
-        ctk.CTkLabel(wrap, text="Fill your profile now — it loads again on every login.",
-                     text_color=COLORS["muted"], wraplength=380).pack(padx=16)
+        ctk.CTkLabel(
+            wrap,
+            text="Fields marked * are required. Location is optional.",
+            text_color=COLORS["muted"], wraplength=380,
+        ).pack(padx=16)
 
         def field(placeholder):
-            e = ctk.CTkEntry(wrap, placeholder_text=placeholder, width=320, height=42)
+            e = ctk.CTkEntry(
+                wrap, placeholder_text=placeholder, width=AUTH_FIELD_WIDTH,
+                height=AUTH_FIELD_HEIGHT,
+            )
             e.pack(pady=6)
             return e
 
-        self.su_user = field("Username")
-        self.su_pw = PasswordEntry(wrap, placeholder="Password", width=320, height=42)
+        self.su_user = field("Username *")
+        self.su_pw = PasswordEntry(
+            wrap, placeholder="Password *", width=AUTH_FIELD_WIDTH, height=AUTH_FIELD_HEIGHT,
+        )
         self.su_pw.pack(pady=6)
-        self.su_pw2 = PasswordEntry(wrap, placeholder="Confirm password", width=320, height=42)
+        self.su_pw2 = PasswordEntry(
+            wrap, placeholder="Confirm password *", width=AUTH_FIELD_WIDTH,
+            height=AUTH_FIELD_HEIGHT,
+        )
         self.su_pw2.pack(pady=6)
-        self.su_name = field("Full name")
-        self.su_email = field("Email")
-        self.su_loc = field("Location (e.g. India)")
-        self.su_bio = field("Short bio")
+        self.su_name = field("Full name *")
+        self.su_email = field("Email (@gmail.com) *")
+        self.su_loc = field("Location (optional)")
+        self.su_bio = field("Short bio *")
         self.su_pw2.bind("<Return>", lambda e: self._try_signup())
 
         self.su_msg = ctk.CTkLabel(wrap, text="", font=("Arial", 12),
                                    text_color=COLORS["danger"], wraplength=340)
         self.su_msg.pack(pady=(8, 0))
 
-        ctk.CTkButton(wrap, text="Create account & continue", width=320, height=46,
+        ctk.CTkButton(wrap, text="Create account & continue", width=AUTH_FIELD_WIDTH, height=46,
                       font=("Arial", 14, "bold"), fg_color=COLORS["info"],
                       hover_color=COLORS["primary"],
                       command=self._try_signup).pack(pady=(10, 8))
         if self.auth.user_count() > 0:
-            ctk.CTkButton(wrap, text="Back to sign in", width=320, height=38,
+            ctk.CTkButton(wrap, text="Back to sign in", width=AUTH_FIELD_WIDTH, height=38,
                           fg_color=COLORS["surface_2"],
                           command=self._show_login).pack(pady=(0, 18))
         else:

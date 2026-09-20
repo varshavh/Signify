@@ -11,6 +11,7 @@ from datetime import date, datetime, timedelta
 from .db import connect
 
 USERNAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{2,31}$")
+GMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+-]+@gmail\.com$", re.IGNORECASE)
 
 
 def _hash_password(password: str, salt: bytes | None = None) -> tuple[str, str]:
@@ -68,6 +69,8 @@ class LocalAuth:
         location = (location or "").strip()
         bio = (bio or "").strip()
 
+        if not username:
+            raise AuthError("Username is required.")
         if not USERNAME_RE.match(username):
             raise AuthError("Username must start with a letter and be 3–32 characters.")
         if len(password or "") < 4:
@@ -75,7 +78,13 @@ class LocalAuth:
         if password != confirm:
             raise AuthError("Passwords do not match.")
         if len(name) < 2:
-            raise AuthError("Please enter your name.")
+            raise AuthError("Full name is required.")
+        if not email:
+            raise AuthError("Email is required.")
+        if not GMAIL_RE.match(email):
+            raise AuthError("Email must be a valid @gmail.com address.")
+        if len(bio) < 2:
+            raise AuthError("Short bio is required.")
         if self.has_user(username):
             raise AuthError("That username is already taken.")
 

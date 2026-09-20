@@ -7,7 +7,7 @@ widgets stay inside the normal layout so clicks keep working.
 
 import customtkinter as ctk
 
-from .config import COLORS
+from .config import AUTH_FIELD_HEIGHT, COLORS
 
 
 class LanguagePicker(ctk.CTkFrame):
@@ -68,30 +68,36 @@ class LanguagePicker(ctk.CTkFrame):
 
 
 class PasswordEntry(ctk.CTkFrame):
-    """Password field with a Show / Hide button beside it."""
+    """Password field with an in-box eye toggle on the right."""
 
-    def __init__(self, master, placeholder="Password", width=300, height=44, **kwargs):
+    def __init__(self, master, placeholder="Password", width=320, height=AUTH_FIELD_HEIGHT, **kwargs):
         placeholder = kwargs.pop("placeholder_text", placeholder)
         kwargs.setdefault("fg_color", "transparent")
-        super().__init__(master, **kwargs)
+        super().__init__(master, width=width, height=height, **kwargs)
+        self.pack_propagate(False)
         self._hidden = True
-        btn_w = 72
+        self._eye_w = 36
+
         self.entry = ctk.CTkEntry(
             self, placeholder_text=placeholder, show="•",
-            width=max(120, width - btn_w - 8), height=height,
+            width=width, height=height,
         )
-        self.entry.pack(side="left")
+        self.entry.place(x=0, y=0)
+
+        # Overlay inside the entry (right edge). Entry is full width so the box looks uniform.
         self._btn = ctk.CTkButton(
-            self, text="Show", width=btn_w, height=height, corner_radius=10,
-            fg_color=COLORS["surface_2"], hover_color=COLORS["primary"],
-            font=("Arial", 13), command=self.toggle,
+            self, text="👁", width=self._eye_w, height=height - 10, corner_radius=6,
+            fg_color="transparent", hover_color=COLORS["surface_2"],
+            text_color=COLORS["muted"], border_width=0,
+            font=("Arial", 15), command=self.toggle,
         )
-        self._btn.pack(side="left", padx=(8, 0))
+        self._btn.place(x=width - self._eye_w - 8, y=5)
+        self._btn.lift()
 
     def toggle(self):
         self._hidden = not self._hidden
         self.entry.configure(show="•" if self._hidden else "")
-        self._btn.configure(text="Show" if self._hidden else "Hide")
+        self._btn.configure(text="👁" if self._hidden else "🙈")
 
     def get(self):
         return self.entry.get()
