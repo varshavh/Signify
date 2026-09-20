@@ -10,8 +10,9 @@ import time
 from pathlib import Path
 
 import cv2
-import numpy as np
 import mediapipe as mp
+
+from .custom_signs import encode_landmarks
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
@@ -72,7 +73,11 @@ class SignRecognizer:
                 predictions.append((top.category_name, float(top.score)))
             predictions.sort(key=lambda x: x[1], reverse=True)
 
-        return annotated, predictions
+        hand_vec = None
+        if result.hand_landmarks:
+            hand_vec = encode_landmarks(result.hand_landmarks[0])
+
+        return annotated, predictions, hand_vec
 
     def close(self):
         try:

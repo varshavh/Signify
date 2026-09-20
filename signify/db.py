@@ -60,6 +60,14 @@ CREATE TABLE IF NOT EXISTS meta (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS custom_signs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL,
+    label TEXT NOT NULL,
+    landmarks TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
 """
 
 

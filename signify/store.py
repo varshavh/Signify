@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import re
 from datetime import date, datetime, timedelta
 
+from .custom_signs import decode_landmarks
 from .db import connect
 
 USERNAME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{2,31}$")
@@ -365,5 +367,47 @@ class AppStore:
             """UPDATE practice SET correct=?, attempts=?, best_streak=?, streak=?
                WHERE username=?""",
             (c, attempts, best, streak, self.username),
+        )
+        self.conn.commit()
+
+    # ---- personal taught gestures ------------------------------------------
+    def add_custom_sign(self, label: str, landmarks: list[float]) -> int:
+        label = (label or "").strip()
+        if len(label) < 1:
+            raise ValueError("Give this gesture a name.")
+        if len(label) > 40:
+            raise ValueError("Name must be 40 characters or less.")
+        now = datetime.now().isoformat(timespec="seconds")
+        cur = self.conn.execute(
+            """INSERT INTO custom_signs(username, label, landmarks, created_at)
+               VALUES (?, ?, ?, ?)""",
+            (self.username, label, json.dumps(landmarks), now),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def list_custom_signs(self) -> list[dict]:
+        rows = self.conn.execute(
+            """SELECT id, label, created_at FROM custom_signs
+               WHERE username = ? ORDER BY id DESC""",
+            (self.username,),
+        ).fetchall()
+        return [{"id": r["id"], "label": r["label"], "created_at": r["created_at"]}
+                for r in rows]
+
+    def list_custom_sign_vectors(self) -> list[tuple[str, list[float]]]:
+        rows = self.conn.execute(
+            "SELECT label, landmarks FROM custom_signs WHERE username = ?",
+            (self.username,),
+        ).fetchall()
+        out = []
+        for r in rows:
+            out.append((r["label"], decode_landmarks(r["landmarks"])))
+        return out
+
+    def delete_custom_sign(self, sign_id: int):
+        self.conn.execute(
+            "DELETE FROM custom_signs WHERE id = ? AND username = ?",
+            (sign_id, self.username),
         )
         self.conn.commit()

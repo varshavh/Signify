@@ -26,12 +26,13 @@ from .camera import open_webcam
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
 from .autocorrect import AutoCorrector
+from .custom_signs import best_match
 from .store import AppStore, AuthError, LocalAuth
 from .tts import speak, pop_status
 from .translate import LANG_NAMES, translate_text
 from .widgets import LanguagePicker, PasswordEntry
 from .pages import (AboutPage, DashboardPage, PracticePage, ProfilePage,
-                    SettingsPage, TranslatorPage)
+                    SettingsPage, TeachSignsPage, TranslatorPage)
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
@@ -43,6 +44,7 @@ NAV = [
     ("dash", "Dashboard"),
     ("profile", "Profile"),
     ("practice", "Practice"),
+    ("teach", "My Signs"),
     ("translate", "Translate"),
     ("about", "About"),
     ("settings", "Settings"),
@@ -231,6 +233,7 @@ class DetectScreen(ctk.CTkFrame):
         self._tr_busy = False
         self._tr_source = ""
         self._tr_lang = ""
+        self._custom_templates = store.list_custom_sign_vectors()
 
         self._build_ui()
         self.start_camera()
@@ -428,11 +431,11 @@ class DetectScreen(ctk.CTkFrame):
                     continue
                 frame = cv2.flip(frame, 1)
                 try:
-                    annotated, preds = recognizer.process(frame)
+                    annotated, preds, hand_vec = recognizer.process(frame)
                 except Exception:
                     continue
                 with self._lock:
-                    self._latest = (annotated, preds)
+                    self._latest = (annotated, preds, hand_vec)
         finally:
             recognizer.close()
             cap.release()
@@ -458,12 +461,22 @@ class DetectScreen(ctk.CTkFrame):
         if tr is not None:
             self._apply_translation(*tr)
         if payload is not None:
-            annotated, preds = payload
+            annotated, preds, hand_vec = payload
             label, score = (preds[0] if preds else (None, 0.0))
+            custom_label, custom_score = best_match(hand_vec, self._custom_templates)
+            used_custom = False
+            if custom_label and custom_score >= 0.5:
+                if (not label or label == "none" or score < 0.45
+                        or custom_score >= score):
+                    label, score = custom_label, custom_score
+                    used_custom = True
             if label and label != "none":
                 self.current_pred = (label, score)
                 shown = display_name(label)
-                kind = "letter" if is_letter(label) else "word"
+                if used_custom:
+                    kind = "my sign"
+                else:
+                    kind = "letter" if is_letter(label) else "word"
                 self.pred_label.configure(text=f"{shown}   {score:.0%}   ·  {kind}")
             else:
                 self.pred_label.configure(text="Detecting…")
@@ -737,7 +750,7 @@ class MainShell(ctk.CTkFrame):
         nav = ctk.CTkFrame(top, fg_color="transparent")
         nav.pack(side="right", padx=8)
         for pid, label in NAV:
-            btn = ctk.CTkButton(nav, text=label, width=92, height=32, corner_radius=8,
+            btn = ctk.CTkButton(nav, text=label, width=84, height=32, corner_radius=8,
                                 fg_color="transparent", hover_color=COLORS["surface_2"],
                                 command=lambda p=pid: self.show(p))
             btn.pack(side="left", padx=2)
@@ -770,6 +783,9 @@ class MainShell(ctk.CTkFrame):
         elif page_id == "practice":
             self.page = PracticePage(self.body, self.store)
             self.live_dot.configure(text="●  Practice", text_color=COLORS["info"])
+        elif page_id == "teach":
+            self.page = TeachSignsPage(self.body, self.store)
+            self.live_dot.configure(text="●  Teach", text_color=COLORS["info"])
         elif page_id == "translate":
             self.page = TranslatorPage(self.body, self.store)
             self.live_dot.configure(text="●  Online", text_color=COLORS["ok"])

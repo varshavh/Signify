@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from tkinter import filedialog
 
 import cv2
 import customtkinter as ctk
@@ -11,6 +12,7 @@ from PIL import Image
 from .charts import draw_bars, format_duration
 from .config import APP_NAME, APP_TAGLINE, COLORS, NUM_HANDS, PRACTICE_SIGNS, SIDEBAR_WIDTH
 from .camera import open_webcam
+from .custom_signs import best_match
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
 from .translate import LANG_NAMES, translate_text
@@ -325,7 +327,7 @@ class PracticePage(ctk.CTkFrame):
         ok, frame = self.cap.read()
         if ok:
             frame = cv2.flip(frame, 1)
-            annotated, preds = self.recognizer.process(frame)
+            annotated, preds, _hand = self.recognizer.process(frame)
             label, score = (preds[0] if preds else (None, 0.0))
             if label and label != "none":
                 self.live.configure(text=f"{display_name(label)}   {score:.0%}")
@@ -375,6 +377,189 @@ class PracticePage(ctk.CTkFrame):
         self.builder.clear()
         self.feedback.configure(text="Try again…", text_color=COLORS["muted"])
         self.target_lbl.configure(text_color=COLORS["info"])
+
+    def stop(self):
+        self.running = False
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+        self.recognizer.close()
+
+
+class TeachSignsPage(ctk.CTkFrame):
+    """Teach personal gestures from a photo; match them live by hand shape."""
+
+    def __init__(self, master, store):
+        super().__init__(master, fg_color=COLORS["bg"])
+        self.store = store
+        self.recognizer = SignRecognizer(num_hands=1)
+        self.cap = None
+        self.running = False
+        self._last_frame = None
+        self._frozen_vec = None
+        self._templates = store.list_custom_sign_vectors()
+
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0, minsize=SIDEBAR_WIDTH)
+        self.grid_rowconfigure(0, weight=1)
+
+        left = _card(self)
+        left.grid(row=0, column=0, sticky="nsew", padx=(16, 8), pady=16)
+        left.grid_rowconfigure(0, weight=1)
+        left.grid_columnconfigure(0, weight=1)
+
+        self.video_host = ctk.CTkFrame(left, fg_color="#0a0c12", corner_radius=12)
+        self.video_host.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
+        self.video_host.grid_propagate(False)
+        self.video = ctk.CTkLabel(self.video_host, text="Starting camera…",
+                                  text_color=COLORS["muted"])
+        self.video.place(relx=0, rely=0, relwidth=1, relheight=1)
+
+        self.live = ctk.CTkLabel(left, text="Hold your taught sign to test it",
+                                 font=("Arial", 16, "bold"), text_color=COLORS["accent"])
+        self.live.grid(row=1, column=0, pady=(0, 12))
+
+        right = ctk.CTkScrollableFrame(self, fg_color=COLORS["surface"],
+                                       corner_radius=16, width=SIDEBAR_WIDTH)
+        right.grid(row=0, column=1, sticky="nsew", padx=(8, 16), pady=16)
+
+        ctk.CTkLabel(right, text="My Signs", font=("Arial", 22, "bold"),
+                     text_color=COLORS["text"]).pack(anchor="w", padx=16, pady=(16, 4))
+        ctk.CTkLabel(
+            right,
+            text="Capture your hand, name the gesture, save. "
+                 "Next time that pose is recognized on Home too.",
+            text_color=COLORS["muted"], wraplength=SIDEBAR_WIDTH - 32, justify="left",
+        ).pack(anchor="w", padx=16, pady=(0, 12))
+
+        self.name_entry = ctk.CTkEntry(right, placeholder_text="Gesture name (e.g. Water)",
+                                       height=40)
+        self.name_entry.pack(fill="x", padx=16, pady=6)
+
+        ctk.CTkButton(right, text="📷 Capture from camera", height=40,
+                      fg_color=COLORS["info"], command=self._capture).pack(
+                          fill="x", padx=16, pady=4)
+        ctk.CTkButton(right, text="🖼 Pick a photo", height=40,
+                      fg_color=COLORS["surface_2"], command=self._pick_photo).pack(
+                          fill="x", padx=16, pady=4)
+        ctk.CTkButton(right, text="💾 Save gesture", height=42,
+                      fg_color=COLORS["primary"], command=self._save).pack(
+                          fill="x", padx=16, pady=(8, 4))
+
+        self.status = ctk.CTkLabel(right, text="", text_color=COLORS["accent"],
+                                   wraplength=SIDEBAR_WIDTH - 32, justify="left")
+        self.status.pack(anchor="w", padx=16, pady=(4, 8))
+
+        ctk.CTkLabel(right, text="Saved gestures", font=("Arial", 14, "bold"),
+                     text_color=COLORS["text"]).pack(anchor="w", padx=16, pady=(8, 4))
+        self.list_box = ctk.CTkTextbox(right, height=180, font=("Arial", 13),
+                                       fg_color=COLORS["surface_2"], text_color=COLORS["text"])
+        self.list_box.pack(fill="x", padx=16, pady=(0, 16))
+        self.list_box.configure(state="disabled")
+        self._refresh_list()
+
+        self.start_camera()
+
+    def _refresh_list(self):
+        signs = self.store.list_custom_signs()
+        self.list_box.configure(state="normal")
+        self.list_box.delete("1.0", "end")
+        if not signs:
+            self.list_box.insert("1.0", "No gestures yet — capture one above.")
+        else:
+            for s in signs:
+                self.list_box.insert("end", f"• {s['label']}\n")
+        self.list_box.configure(state="disabled")
+
+    def start_camera(self):
+        self.cap = open_webcam(0)
+        if not self.cap.isOpened():
+            self.video.configure(text="⚠ Could not open webcam")
+            return
+        self.running = True
+        self._tick()
+
+    def _tick(self):
+        if not self.running or self.cap is None:
+            return
+        ok, frame = self.cap.read()
+        if ok:
+            frame = cv2.flip(frame, 1)
+            self._last_frame = frame.copy()
+            annotated, preds, hand_vec = self.recognizer.process(frame)
+            label, conf = best_match(hand_vec, self._templates)
+            if label:
+                self.live.configure(
+                    text=f"✓ {label}   {conf:.0%}  ·  my sign",
+                    text_color=COLORS["ok"],
+                )
+            else:
+                self.live.configure(
+                    text="Hold a taught sign in view to test",
+                    text_color=COLORS["accent"],
+                )
+            self._show_frame(annotated)
+        self.after(33, self._tick)
+
+    def _show_frame(self, frame_bgr):
+        rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(rgb)
+        lw = max(self.video_host.winfo_width(), 320)
+        lh = max(self.video_host.winfo_height(), 240)
+        img.thumbnail((lw, lh))
+        ctk_img = ctk.CTkImage(light_image=img, dark_image=img, size=img.size)
+        self.video.configure(image=ctk_img, text="")
+        self.video.image = ctk_img
+
+    def _capture_from_frame(self, frame):
+        annotated, _, hand_vec = self.recognizer.process(frame)
+        if not hand_vec:
+            self.status.configure(
+                text="No hand detected. Show one clear hand and try again.")
+            return False
+        self._frozen_vec = hand_vec
+        self._show_frame(annotated)
+        self.status.configure(text="Captured — enter a name and press Save.")
+        return True
+
+    def _capture(self):
+        if self._last_frame is None:
+            self.status.configure(text="Camera not ready yet.")
+            return
+        self._capture_from_frame(self._last_frame.copy())
+
+    def _pick_photo(self):
+        path = filedialog.askopenfilename(
+            title="Choose a hand photo",
+            filetypes=[
+                ("Images", "*.png *.jpg *.jpeg *.webp *.bmp"),
+                ("All files", "*.*"),
+            ],
+        )
+        if not path:
+            return
+        frame = cv2.imread(path)
+        if frame is None:
+            self.status.configure(text="Could not read that image.")
+            return
+        self._capture_from_frame(frame)
+
+    def _save(self):
+        if not self._frozen_vec:
+            self.status.configure(text="Capture a hand or pick a photo first.")
+            return
+        label = self.name_entry.get().strip()
+        try:
+            self.store.add_custom_sign(label, self._frozen_vec)
+        except ValueError as exc:
+            self.status.configure(text=str(exc))
+            return
+        self._templates = self.store.list_custom_sign_vectors()
+        self._frozen_vec = None
+        self.name_entry.delete(0, "end")
+        self._refresh_list()
+        self.status.configure(
+            text=f"Saved “{label}”. It works here and on Home.")
 
     def stop(self):
         self.running = False
