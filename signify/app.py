@@ -78,7 +78,7 @@ class AuthScreen(ctk.CTkFrame):
         card = self._card(440, 500)
         empty = self.auth.user_count() == 0
 
-        hand = emoji_ctk("👐", 44)
+        hand = emoji_ctk("👐", 38, 48)
         hand_lbl = ctk.CTkLabel(card, text="", image=hand)
         hand_lbl.pack(pady=(32, 2))
         hand_lbl.image = hand

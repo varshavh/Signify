@@ -8,7 +8,7 @@ from pathlib import Path
 import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageFont
 
-_CACHE: dict[tuple[str, int], ctk.CTkImage] = {}
+_CACHE: dict[tuple[str, int, int], ctk.CTkImage] = {}
 
 
 def _emoji_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont | None:
@@ -36,25 +36,31 @@ def _emoji_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont | Non
     return None
 
 
-def emoji_ctk(char: str, size: int = 22) -> ctk.CTkImage:
-    """Color emoji tile for buttons. Falls back to a plain label character."""
-    key = (char, size)
+def emoji_ctk(char: str, size: int = 18, tile: int = 28) -> ctk.CTkImage:
+    """Square color emoji tile, glyph centered for button overlays."""
+    key = (char, size, tile)
     if key in _CACHE:
         return _CACHE[key]
 
-    pad = 6
-    canvas = size + pad * 2
-    img = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    img = Image.new("RGBA", (tile, tile), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
     font = _emoji_font(size)
     if font is not None:
         try:
-            draw.text((pad, pad - 2), char, font=font, embedded_color=True)
+            bbox = draw.textbbox((0, 0), char, font=font, embedded_color=True)
         except TypeError:
-            draw.text((pad, pad - 2), char, font=font, fill=(220, 220, 220))
+            bbox = draw.textbbox((0, 0), char, font=font)
+        tw = bbox[2] - bbox[0]
+        th = bbox[3] - bbox[1]
+        x = (tile - tw) // 2 - bbox[0]
+        y = (tile - th) // 2 - bbox[1]
+        try:
+            draw.text((x, y), char, font=font, embedded_color=True)
+        except TypeError:
+            draw.text((x, y), char, font=font, fill=(220, 220, 220))
     else:
-        draw.text((pad, pad), char, fill=(180, 180, 180))
+        draw.text((tile // 2 - 4, tile // 2 - 6), "?", fill=(180, 180, 180))
 
-    out = ctk.CTkImage(light_image=img, dark_image=img, size=(canvas, canvas))
+    out = ctk.CTkImage(light_image=img, dark_image=img, size=(tile, tile))
     _CACHE[key] = out
     return out

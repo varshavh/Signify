@@ -540,7 +540,7 @@ class AboutPage(ctk.CTkFrame):
         card = _card(self, width=720)
         card.place(relx=0.5, rely=0.5, anchor="center")
 
-        hand = emoji_ctk("👐", 48)
+        hand = emoji_ctk("👐", 42, 52)
         hand_lbl = ctk.CTkLabel(card, text="", image=hand)
         hand_lbl.pack(pady=(28, 0))
         hand_lbl.image = hand

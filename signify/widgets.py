@@ -10,6 +10,10 @@ import customtkinter as ctk
 from .config import AUTH_FIELD_HEIGHT, COLORS
 from .emoji_img import emoji_ctk
 
+# Match default CTkEntry colors so the password shell looks like other fields.
+_ENTRY_FG = ("#F9F9FA", "#343638")
+_ENTRY_BORDER = ("#979DA2", "#565B5E")
+
 
 class LanguagePicker(ctk.CTkFrame):
     """Expand-in-place language list. Same .get() / .set() as a combo box."""
@@ -69,7 +73,10 @@ class LanguagePicker(ctk.CTkFrame):
 
 
 class PasswordEntry(ctk.CTkFrame):
-    """Password field with an in-box eye toggle on the right."""
+    """Password field with a centered in-box eye toggle."""
+
+    _ICON_TILE = 28
+    _ICON_SLOT = 40
 
     def __init__(self, master, placeholder="Password", width=320, height=AUTH_FIELD_HEIGHT, **kwargs):
         placeholder = kwargs.pop("placeholder_text", placeholder)
@@ -77,24 +84,31 @@ class PasswordEntry(ctk.CTkFrame):
         super().__init__(master, width=width, height=height, **kwargs)
         self.pack_propagate(False)
         self._hidden = True
-        self._eye_w = 36
-        self._img_show = emoji_ctk("👁", 20)
-        self._img_hide = emoji_ctk("🙈", 20)
+        self._img_show = emoji_ctk("👁", 17, self._ICON_TILE)
+        self._img_hide = emoji_ctk("🙈", 17, self._ICON_TILE)
 
-        self.entry = ctk.CTkEntry(
-            self, placeholder_text=placeholder, show="•",
-            width=width, height=height,
+        self._shell = ctk.CTkFrame(
+            self, width=width, height=height, corner_radius=10,
+            fg_color=_ENTRY_FG, border_width=2, border_color=_ENTRY_BORDER,
         )
-        self.entry.place(x=0, y=0)
+        self._shell.place(relx=0.5, rely=0.5, anchor="center")
+        self._shell.pack_propagate(False)
 
-        # Color emoji image — CTk text emoji is B/W on Windows.
+        text_w = width - self._ICON_SLOT - 6
+        self.entry = ctk.CTkEntry(
+            self._shell, placeholder_text=placeholder, show="•",
+            width=text_w, height=height - 8,
+            border_width=0, fg_color="transparent",
+        )
+        self.entry.place(relx=0, rely=0.5, anchor="w", x=10)
+
         self._btn = ctk.CTkButton(
-            self, text="", width=self._eye_w, height=height - 10, corner_radius=6,
-            fg_color="transparent", hover_color=COLORS["surface_2"],
+            self._shell, text="", width=self._ICON_SLOT, height=height - 8,
+            corner_radius=8, fg_color="transparent",
+            hover_color=("#E5E5E5", "#3E4042"),
             image=self._img_show, command=self.toggle,
         )
-        self._btn.place(x=width - self._eye_w - 8, y=5)
-        self._btn.lift()
+        self._btn.place(relx=1.0, rely=0.5, anchor="e", x=-2)
 
     def toggle(self):
         self._hidden = not self._hidden
