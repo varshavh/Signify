@@ -13,6 +13,7 @@ from .config import APP_NAME, APP_TAGLINE, COLORS, NUM_HANDS, PRACTICE_SIGNS, SI
 from .camera import open_webcam
 from .recognizer import SignRecognizer
 from .sentence_builder import SentenceBuilder, display_name, is_letter
+from .sign_chart import load_sign_chart_entries, load_thumbnail
 from .translate import LANG_NAMES, translate_text
 from .tts import speak, pop_status
 from .emoji_img import emoji_ctk
@@ -532,6 +533,105 @@ class TranslatorPage(ctk.CTkFrame):
         self.clipboard_clear()
         self.clipboard_append(text)
         self.status.configure(text="Copied.")
+
+
+class ChartPage(ctk.CTkScrollableFrame):
+    """Training-image reference: what each sign looks like and means."""
+
+    def __init__(self, master, store):
+        super().__init__(master, fg_color=COLORS["bg"])
+        self.store = store
+        self._entries = load_sign_chart_entries()
+        self._filter = "all"
+        self._thumbs: dict[str, ctk.CTkImage] = {}
+        self._img_refs: list[ctk.CTkImage] = []
+
+        head = ctk.CTkFrame(self, fg_color="transparent")
+        head.pack(fill="x", padx=12, pady=(12, 4))
+        ctk.CTkLabel(head, text="Sign Chart", font=("Arial", 28, "bold"),
+                     text_color=COLORS["text"]).pack(anchor="w")
+        ctk.CTkLabel(
+            head,
+            text="Sample images from the training set — what to show the camera and what it means.",
+            font=("Arial", 13), text_color=COLORS["muted"], wraplength=900, justify="left",
+        ).pack(anchor="w", pady=(4, 8))
+
+        filt = ctk.CTkFrame(head, fg_color="transparent")
+        filt.pack(anchor="w", pady=(0, 8))
+        self._filt_btns = {}
+        for key, label in (("all", "All"), ("letter", "Letters A–Z"), ("word", "Words")):
+            btn = ctk.CTkButton(
+                filt, text=label, width=120, height=32, corner_radius=8,
+                fg_color=COLORS["primary"] if key == "all" else COLORS["surface_2"],
+                hover_color=COLORS["primary_h"],
+                command=lambda k=key: self._set_filter(k),
+            )
+            btn.pack(side="left", padx=(0, 6))
+            self._filt_btns[key] = btn
+
+        self.count_lbl = ctk.CTkLabel(head, text="", font=("Arial", 12),
+                                      text_color=COLORS["muted"])
+        self.count_lbl.pack(anchor="w")
+
+        self.grid_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.grid_frame.pack(fill="both", expand=True, padx=12, pady=(0, 16))
+        self._render_grid()
+
+    def _set_filter(self, key: str):
+        self._filter = key
+        for k, btn in self._filt_btns.items():
+            btn.configure(fg_color=COLORS["primary"] if k == key else COLORS["surface_2"])
+        self._render_grid()
+
+    def _visible(self):
+        if self._filter == "letter":
+            return [e for e in self._entries if e.kind == "Letter"]
+        if self._filter == "word":
+            return [e for e in self._entries if e.kind == "Word"]
+        return self._entries
+
+    def _thumb(self, path):
+        key = str(path)
+        if key not in self._thumbs:
+            img = load_thumbnail(path)
+            self._thumbs[key] = ctk.CTkImage(
+                light_image=img, dark_image=img, size=img.size,
+            )
+        return self._thumbs[key]
+
+    def _render_grid(self):
+        for child in self.grid_frame.winfo_children():
+            child.destroy()
+
+        items = self._visible()
+        self.count_lbl.configure(text=f"{len(items)} signs shown")
+        if not items:
+            ctk.CTkLabel(self.grid_frame, text="No training images found in sign_language_dataset/.",
+                         text_color=COLORS["muted"]).pack(pady=40)
+            return
+
+        cols = 3
+        for col in range(cols):
+            self.grid_frame.grid_columnconfigure(col, weight=1, uniform="chart")
+
+        for i, entry in enumerate(items):
+            r, c = divmod(i, cols)
+            card = _card(self.grid_frame)
+            card.grid(row=r, column=c, padx=8, pady=8, sticky="nsew")
+
+            thumb = self._thumb(entry.image_path)
+            self._img_refs.append(thumb)
+            img_lbl = ctk.CTkLabel(card, text="", image=thumb)
+            img_lbl.pack(padx=12, pady=(12, 6))
+            img_lbl.image = thumb
+
+            ctk.CTkLabel(card, text=entry.title, font=("Arial", 18, "bold"),
+                         text_color=COLORS["text"]).pack(anchor="w", padx=14)
+            ctk.CTkLabel(card, text=entry.kind, font=("Arial", 11, "bold"),
+                         text_color=COLORS["info"]).pack(anchor="w", padx=14, pady=(2, 0))
+            ctk.CTkLabel(card, text=entry.meaning, font=("Arial", 12),
+                         text_color=COLORS["muted"], wraplength=240,
+                         justify="left").pack(anchor="w", padx=14, pady=(4, 14))
 
 
 class AboutPage(ctk.CTkFrame):

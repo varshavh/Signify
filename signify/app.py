@@ -31,7 +31,7 @@ from .tts import speak, pop_status
 from .translate import LANG_NAMES, translate_text
 from .emoji_img import emoji_ctk
 from .widgets import LanguagePicker, PasswordEntry
-from .pages import (AboutPage, DashboardPage, PracticePage, ProfilePage,
+from .pages import (AboutPage, ChartPage, DashboardPage, PracticePage, ProfilePage,
                     SettingsPage, TranslatorPage)
 
 ctk.set_appearance_mode("dark")
@@ -44,6 +44,7 @@ NAV = [
     ("dash", "Dashboard"),
     ("profile", "Profile"),
     ("practice", "Practice"),
+    ("chart", "Chart"),
     ("translate", "Translate"),
     ("about", "About"),
     ("settings", "Settings"),
@@ -723,7 +724,7 @@ class MainShell(ctk.CTkFrame):
         top = ctk.CTkFrame(self, fg_color=COLORS["surface"], height=62, corner_radius=0)
         top.pack(fill="x")
         top.pack_propagate(False)
-        nav_hand = emoji_ctk("👐", 22)
+        nav_hand = emoji_ctk("👐", 18, 26)
         brand = ctk.CTkFrame(top, fg_color="transparent")
         brand.pack(side="left", padx=18)
         hand_lbl = ctk.CTkLabel(brand, text="", image=nav_hand)
@@ -747,7 +748,7 @@ class MainShell(ctk.CTkFrame):
         nav = ctk.CTkFrame(top, fg_color="transparent")
         nav.pack(side="right", padx=8)
         for pid, label in NAV:
-            btn = ctk.CTkButton(nav, text=label, width=92, height=32, corner_radius=8,
+            btn = ctk.CTkButton(nav, text=label, width=78, height=32, corner_radius=8,
                                 fg_color="transparent", hover_color=COLORS["surface_2"],
                                 command=lambda p=pid: self.show(p))
             btn.pack(side="left", padx=2)
@@ -780,6 +781,9 @@ class MainShell(ctk.CTkFrame):
         elif page_id == "practice":
             self.page = PracticePage(self.body, self.store)
             self.live_dot.configure(text="●  Practice", text_color=COLORS["info"])
+        elif page_id == "chart":
+            self.page = ChartPage(self.body, self.store)
+            self.live_dot.configure(text="●  Chart", text_color=COLORS["info"])
         elif page_id == "translate":
             self.page = TranslatorPage(self.body, self.store)
             self.live_dot.configure(text="●  Online", text_color=COLORS["ok"])
